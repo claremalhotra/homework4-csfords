@@ -6,15 +6,13 @@ Created on Mon Apr 22 12:14:13 2024
 @author: claremalhotra
 """
 
-import bs4
-import numpy as np
-import pandas as pd
 from io import StringIO
-import requests
-import time
 from time import sleep
 import warnings
-from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
+import bs4
+import pandas as pd
+import requests
+from bs4 import MarkupResemblesLocatorWarning
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning, module = "bs4")
 
 
@@ -25,59 +23,75 @@ def df_creator(course_page):
     Given a page from the course catalog, this function return a pandas 
     dataframe containing the ontents of the responsive table
     """
-    
-    class_df = pd.DataFrame(columns = ["Course Code", "Course Name", "Description",
-                                   "Professor","Pre-Requisites", "Terms offered", 
-                   "Equivalent Courses"])
-    
-    course_blocks = course_page.find_all("div", class_=["courseblock main", "courseblock subsequence"])
+
+    class_df = pd.DataFrame(columns = ["Course Code", "Course Name",
+                                       "Description", "Professor",
+                                       "Pre-Requisites", "Terms offered",
+                                       "Equivalent Courses"])
+
+    course_blocks = course_page.find_all("div",
+                                        class_=["courseblock main",
+                                                "courseblock subsequence"])
 
     for course_block in course_blocks:
         code_tag = course_block.find("p", class_="courseblocktitle").strong
         if code_tag:
-            code = course_block.find("p", class_="courseblocktitle").strong.text.split(".")[0]
-            name = course_block.find("p", class_="courseblocktitle").strong.text.split(".")[1:-2]
+            code = course_block.find("p", class_="courseblocktitle").\
+                strong.text.split(".")[0]
+            name = course_block.find("p", class_="courseblocktitle").\
+                strong.text.split(".")[1:-2]
             name = "".join(name)
-            description = course_block.find("p", class_ = "courseblockdesc").text
+            description = course_block.find("p",
+                                            class_ = "courseblockdesc").text
             description = description.replace("\n","")
 
             detail_tag = course_block.find("p", class_="courseblockdetail")
             if detail_tag:
-                instructor_tag = course_block.find("p", class_="courseblockdetail").find(string=lambda text: text and "Instructor(s)" in text)
-                prerequisites_tag = course_block.find("p", class_="courseblockdetail").find(string=lambda text: text and "Prerequisite(s):" in text)
-                terms_tag = course_block.find("p", class_="courseblockdetail").find(string=lambda text: text and "Terms Offered:" in text)
-                equivalent_tag = course_block.find("p", class_="courseblockdetail").find(string=lambda text: text and "Equivalent Course(s):" in text)
-           
+                instructor_tag = course_block.find("p", class_=
+                    "courseblockdetail").find(string=lambda text: text and
+                    "Instructor(s)" in text)
+                prerequisites_tag = course_block.find("p", class_=
+                    "courseblockdetail").find(string=lambda text:
+                    text and "Prerequisite(s):" in text)
+                terms_tag = course_block.find("p", class_=
+                    "courseblockdetail").find(string=lambda text:
+                    text and "Terms Offered:" in text)
+                equivalent_tag = course_block.find("p",
+                    class_="courseblockdetail").find(string=lambda
+                    text: text and "Equivalent Course(s):" in text)
                 prof = ""
                 prereqs = ""
                 terms = ""
                 equivs = ""
-            
+
                 if instructor_tag:
                     prof = instructor_tag.split("Instructor(s):")[1].strip()
-                
+
                 if terms_tag:
                     terms = terms_tag.split("Terms Offered:")[1].strip()
                     prof = prof.strip().split("Terms Offered")[0].strip()
 
                 if prerequisites_tag:
-                    prereqs = prerequisites_tag.split("Prerequisite(s):")[1].strip()
+                    prereqs = prerequisites_tag.split("Prerequisite(s):")\
+                        [1].strip()
                     prof = prof.split("Prerequisite")[0].strip()
                     terms = terms.split("Prerequisite")[0].strip()
 
                 if equivalent_tag:
-                    equivs = equivalent_tag.split("Equivalent Course(s):")[1].strip()
+                    equivs = equivalent_tag.split("Equivalent Course(s):")\
+                        [1].strip()
                     prof = prof.split("Equivalent")[0].strip()
                     terms = terms.split("Equivalent")[0].strip()
                     prereqs = prereqs.split("Equivalent")[0].strip()
 
-                df_dict = {"Course Code": code, "Course Name": name, "Description": description,
-                  "Professor": prof, "Pre-Requisites": prereqs, "Terms offered": terms, 
-                   "Equivalent Courses": equivs}
+                df_dict = {"Course Code": code, "Course Name": name,
+                           "Description": description, "Professor": prof,
+                           "Pre-Requisites": prereqs, "Terms offered": terms,
+                           "Equivalent Courses": equivs}
 
                 df_dict = pd.DataFrame([df_dict])
                 class_df = pd.concat([class_df, df_dict], ignore_index=True)
-    
+
     return class_df
 
 BASEURL = "http://collegecatalog.uchicago.edu/"
@@ -98,6 +112,7 @@ def url_finder(url, start_link, end_link):
         full_link = BASEURL + link
         full_links.append(full_link)
     return full_links
+
 stem_urls = url_finder(BASEURL, 0, 3)
 
 core_page = stem_urls[0]
@@ -114,16 +129,16 @@ def find_minor_urls(url, start_link = 0, end_link = -2):
     page = requests.get(url)
     soup = bs4.BeautifulSoup(page.text, "html.parser")
     minor_tag = soup.find("a", attrs = {"name": "minorsoffered"})
-    minor_urls = []
+    minor_urls_list = []
     p_tags = minor_tag.find_all_next("p")
     for p_tag in p_tags:
         a_tags = p_tag.find_all("a")
         for a_tag in a_tags:
             minor_url = a_tag["href"][1:]
             minor_url = minor_url.replace("#","")
-            minor_urls.append(minor_url)
+            minor_urls_list.append(minor_url)
     full_links = []
-    for link in minor_urls[start_link:end_link]: 
+    for link in minor_urls[start_link:end_link]:
         full_link = BASEURL + link
         full_links.append(full_link)
     return full_links
@@ -146,8 +161,8 @@ def get_all_data(class_df):
     for url in all_urls:
         print(url)
         for item in url_already_parsed:
-           if url == item:
-               continue
+            if url == item:
+                continue
         for i in range(6):
             try:
                 page = requests.get(url)
@@ -159,13 +174,12 @@ def get_all_data(class_df):
                 page = requests.get(url)
         page_text = page.text
         data = bs4.BeautifulSoup(StringIO(page_text), "html.parser")
-        df = df_creator(data)
-        if len(df) == 0:
+        ind_df = df_creator(data)
+        if len(ind_df) == 0:
             continue
-        else:
-            class_df = pd.concat([class_df, df], ignore_index=True)
-            url_already_parsed.append(url)
-            sleep(3)
+        class_df = pd.concat([class_df, ind_df], ignore_index=True)
+        url_already_parsed.append(url)
+        sleep(3)
     return class_df
 
 course_df = get_all_data(class_df)
@@ -180,7 +194,7 @@ def unique_courses(course_df):
     """
     for i in range(len(course_df)):
         mylist = [course_df.iloc[i]["Course Code"]]
-        if not pd.isna(course_df.iloc[i]["Equivalent Courses"]): 
+        if not pd.isna(course_df.iloc[i]["Equivalent Courses"]):
             equivs = course_df.loc[i]["Equivalent Courses"].split(",")
             mylist = mylist + equivs
             mylist = [x.strip() for x in mylist]
@@ -191,10 +205,10 @@ def unique_courses(course_df):
     unique_df = unique_df.reset_index()
     unique_df = unique_df.drop(columns = {"Unnamed: 0", "index"})
     return unique_df
-    
+
 big_trial_df = pd.read_csv("/Users/claremalhotra/Desktop/cs_for_ds/trial7.csv")
 unique_courses_df = unique_courses(big_trial_df)
-    
+
 def department_count(course_df):
     """
     This function returns a data frame with the count 
@@ -212,7 +226,8 @@ def department_count(course_df):
                 dep_count += 1
         dep_dict[dep] = dep_count
 
-    dep_df = pd.DataFrame(list(dep_dict.items()), columns=['Department', 'Count'])
+    dep_df = pd.DataFrame(list(dep_dict.items()), columns=['Department',
+                                                           'Count'])
     return dep_df
 
 dep_count_df = department_count(unique_courses_df)
@@ -230,8 +245,3 @@ def quarters_count(course_df):
                 q_count += 1
         quarter_dict[quarter] = q_count
     return quarter_dict
-    
-
-
-
-

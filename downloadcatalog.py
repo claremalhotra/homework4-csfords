@@ -222,7 +222,7 @@ def quarters_count(course_df):
     This function determines the number of courses offered each quarter
     """
     quarter_dict = {}
-    quarters = ["Autumn", "Winter", "Spring"]
+    quarters = ["Autumn", "Winter", "Spring", "Summer"]
     for quarter in quarters:
         q_count = 0
         for course_qs in course_df["Terms offered"]:
